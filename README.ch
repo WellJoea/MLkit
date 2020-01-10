@@ -1,0 +1,169 @@
+1. MLkit 软件开发及更新
+转至元数据结尾
+由 周伟创建, 最后修改于2019-08-02 转至元数据起始
+ 功能：MLkit软件主要是根据目前多个部门需求，开发的一款基于多种经典的机器学习分析工具。主要用于肿瘤的诊断和预测分析。
+
+            其主要包括 数据预处理Common， 特征筛选 Fseletion,  模型构建 Fitting， 结果预测Predict,  样本打分Score 五个模块。
+
+            MLkit.py -h ： 包括 Common, Fseletion, Fitting，Predict，Score，以及Auto
+
+                                    其中Auto 自动分析 Common + Fseletion + Fitting + Predict
+
+下载地址： https://github.com/WellJoea/MLkit
+后续更新： 1.目前流程主要对于分类比较完善， 但是对于回归的调参和可视化还需优化
+                   2. 对于预后分析，传统的单因素和多因素COX回归对于特征数量不够明确。不同的特征组合得分结果对生存曲线比较结果影响较大。 多因素的Penalized Cox regression（PCoxR）可以弥补这个缺点。
+                      对于PCoxR分析，主要考虑Lasso(+Lars), ElasticNet, SVM , XGB 联合CoxR分析。
+                   3. 降维分析方法过于单一，需加入多种传统机器学习降维方法。 其中Autoencoder 自编码降维分析将在 DeepKit软件（深度学习）中补充。
+                   4. 无监督学习方法过于单一，目前大部分数据对于label的确定和相关性不确定。因此无监督学习能够较高的用于此情形。对于不同的数据结构，多种无监督学习能够提高数据挖掘力。
+                   5. 基于深度学习的数据分析软件DeepKit开发。
+
+                   6.  XGBoost分析s
+
+软件要求：
+               python 3.7
+                     'joblib >= 0.13.2 ',
+                      'matplotlib >= 3.0.3',
+                      'mlxtend >= 0.16.0',
+                      'numpy >= 1.16.4',
+                      'pandas >= 0.24.2',
+                      'scikit-learn >= 0.21.2',
+                      'scikit-plot >= 0.3.7',
+                      'scipy >= 1.3.0',
+                      'seaborn >= 0.9.0',
+                     'sklearn-pandas >= 1.8.0',
+软件安装：
+                download: https://github.com/WellJoea/MLkit.git
+                cd MLkit
+                python setup.py install
+
+使用方法：MLkit.py -h
+
+模块说明：
+0:: 使用说明：
+     MLkit.py Auto -i data.traintest.txt -g group.new.txt -p data.predict.txt -o testdt/ -m DT
+     输入文件A( -i) : 数据行为样本、列为特征和Labels。其中第一列为样本编号，第一行为表头, Tab分割, Sample开头
+
+Sample	FeatureA	FeatureB	FeatureC	LabelA	LabelB
+SamplA	0.111111	1	apple   	0	1.1
+SamplB	2.333333	0	orange  	1	2.2
+
+注：表头第一个为Sample，固定格式
+     -p 预测数据格式和-i 输入格式一致
+
+    输入文件B( -g) : 第一行为表头, Tab分割, 表头不变
+
+Variables	Group	Type
+FeatureA	group	R
+FeatureB	group	C
+FeatureC	group	H
+LabelA	Y	C
+LabelB	Y	R
+
+注：Variables: 所有Features和Labels
+Group: 列特征为标注分组，labels为Y
+Type : C为离散变量， R为连续变量， H为标签变量
+
+
+
+1:: Common：
+1.1 缺失数据删除：去除缺失值大于20%的样本，去除缺失值大于20%的特征(MissRow, MissCol)
+1.2 缺失数据填充：使用特征的均值，中值，众数或者固定值填充(MissValue, FillValue)
+1.3 数据标准化和归一化：采用多种线性和非线性进行标准化，对于标签数据采用OneHotEncoder编码。对于需要进行梯度下降方法的算法对数据进行归一化较高
+1.4 对于预测数据集样本填充、标准化和归一化以输入数据样本集为准进行标定
+1.5 可视化：heatmap + PCA
+
+2:: Fseletion：
+2.1 传统统计方法：VarianceThreshold, ANOVA-F, chi2, mutual_info, wilcoxon, ranksums, mannwhitneyu, ttest_ind, pearsonr
+      进行特征与labels之间的相关性检验。
+2.1.1 可根据数据需求进行选择
+2.1.2 每种检验根据统计值大小排序，选择top rank特征作为保留(SelectK =0.4, 表示每种方法选择top排序前40%的特征)。去除所有统计方法中排序均为False的特征
+2.1.3 后续添加 自变量间的相关性分析，添加pearsonr线性相关性和岭回归非线性相关性分析
+2.2 采用串联使用RFECV_RC， SFSCV_RC，Coef_SC3个模块进行特征筛选。
+2.2.1 默认只是用RFECV_RC方法，以RFECV_RC为例
+2.2.2 每种方法对数据进行Test数据集0.15-0.35(20次)比例划分，每次划分进行给定Estimators(如XGB + LinearSVMl1)进行RFECV(CV=10)逐步特征拟合，选出最高得分的特征。即每种模型进行20次特征筛选。该方法重复多次(SelectCV_rep=1)，去除随机性。
+2.2.3 对于多种模型和多个模块进行串联或并联( set = ['parallel','serial'] )进行TOP SUM排序，选取前TOP特征(RFE_rate=20)作为最终的特征。
+2.2.4 RFECV_RC， SFSCV_RC，Coef_SC3模块过滤逐渐严格，速度也随之加慢。主要以RFECV_RC为主，添加多个Estimators，进行特征筛选。同时去除单个Estimators过拟合情况。
+2.2.5 RFECV_RC和Coef_SC均以存在coef_ or feature_importances_属性的Estimators。因此，对于不存在此属性特Estimator，会以其他方法进行替换（默认）：
+        ['SVMrbf', 'KNN','RNN'] -> ['SVMlinear']
+        ['MLP','AdaB_DT' ] -> ['XGB']
+        ['MNB','CNB','BNB','GNB'] -> ['MNB']
+2.3 统计和Estimators缩写：
+classification:.++++++++++++++++++++++
+**RF.................RandomForestClassifier
+**GBDT...............GradientBoostingClassifier
+**XGB................XGBClassifier(+LR/LRCV)
+
+**LGBM............LGBMClassifier()
+**MLP................MLPClassifier
+**DT.................DecisionTreeClassifier
+**AdaB_DT............AdaBoostClassifier(DT)
+**LinearSVM..........LinearSVC(penalty='l1')
+**LinearSVMil2.......LinearSVC(penalty='l2')
+**SVMlinear..........SVC(kernel="linear")
+**SVM................SVC(no linear)
+**nuSVMrbf...........NuSVC(kernel='rbf')
+**SGD................SGDClassifier
+**KNN................KNeighborsClassifier
+**RNN................RadiusNeighborsClassifier
+**MNB................MultinomialNB
+**CNB................ComplementNB
+**BNB................BernoulliNB
+**GNB................GaussianNB
+**LR.................LogisticRegression
+**LRCV...............LogisticRegressionCV
+Regressioin:....+++++++++++++++++++++
+**RF.................RandomForestRegressor
+**GBDT...............GradientBoostingRegressor
+**XGB................XGBRegressor
+**MLP................MLPRegressor
+**DT.................DecisionTreeRegressor
+**AdaB_DT............AdaBoostRegressor(DT)
+**LinearSVM..........LinearSVR
+**SVMlinear..........SVR(kernel="linear")
+**SVMrbf.............SVR(kernel="rbf")
+**nuSVMrbf...........NuSVC(kernel='rbf')
+**SGD................SGDRegressor
+**KNN................KNeighborsRegressor
+**RNN................RadiusNeighborsRegressor
+**LG.................LogisticRegression
+**LassCV.............LassoCV
+**Lasso..............Lasso
+**ENet...............ElasticNet
+**ENetCV.............ElasticNetCV
+classification:......+++++++++++++++++
+**VTh.................VarianceThreshold
+**ANVF................f_classif
+**Chi2................chi2
+**MI..................mutual_info_classif
+**WC..................wilcoxon
+**RS..................ranksums
+**MWU.................mannwhitneyu
+**TTI.................ttest_ind
+Regressioin:.........+++++++++++++++++
+**VTh................VarianceThreshold
+**ANVF...............f_regression 
+**PS.................pearsonr
+**MI.............. ..mutual_info_classif
+2.4 可视化： heatmap + PCA
+
+3:: Fitting:
+3.1 数据划分：由于数据量较小，数据拆分并未在数据处理之前进行，而是在模型拟合开始。同时对于肿瘤样本的Labels等级数量偏差较大，数据划分默认采用14划分：StratifiedShuffleSplit(10, 0.25) + StratifiedKFold(1/0.25)。当数据量小于70时，建议采用Leaveoneout进行。
+3.2 对于每一次数据划分，均进行超参数调参和模型评估。最终预测结果以预测概率均值(>0.5)或者预测结果投票法确定(>50%)。
+3.3 不同模型给出特征权重不同，以feature_importances_和coef_ 顺序为准，无此属性权重转换如下：
+      'MNB','BNB' : np.exp(coef_)
+      'CNB' : np.exp(-feature_log_prob_)[1]
+      'GNB' : theta_
+      'MLP' : Coefs.dot()
+       'SVM' ：dual_coef_.dot( support_vectors_ ) 采用tanh或则(1-np.exp(-dot_coef_)) / (1+np.exp(-dot_coef_))标准化
+3.4 超参数调整：具体见MLEstimators。后续添加接口文件，方便用户自定义设置参数。
+      采用GridSearchCV和RandomizedSearchCV两种方法进行。对于XGB，建议采用RandomizedSearchCV，并设置抽样次数500-3000左右
+3.5 对于ensemble：XGB，GBDT，RF估计方法， 添加融合LR模型，增加预测能力。 即使用ensemble的叶子节点进行onehot转化，作为LR(LRCV)的输入进行LR再次模型拟合。
+3.6 模型评估和可视化 ROC+ PR + heatmap
+
+4:: Predict
+4.1 数据预处理、特征筛选和模型以训练数据集为准，对14个模型进行分析。最终预测结果以预测概率均值(>0.5)或者预测结果投票法确定(>50%)。
+
+5:: Score
+5.1 数据预处理、特征筛选，模型拟合和预测如上所示
+5.2 数据分箱，采用DT叶节点和chi2检验方法进行数据分箱。对于区段存在label缺失，以IV大小前后进行合并。
+5.3 采用LRCV进行模型拟合（默认）

@@ -1,0 +1,10 @@
+Variables	Group	Type
+Group	Y	C
+lvl1_cnt	SNV_grade	R
+lvl1_maxVAF	SNV_grade	R
+lvl2_cnt	SNV_grade	R
+lvl2_maxVAF	SNV_grade	R
+lvl3_cnt	SNV_grade	R
+lvl3_maxVAF	SNV_grade	R
+lvl4_cnt	SNV_grade	R
+lvl4_maxVAF	SNV_grade	R
